@@ -3,7 +3,7 @@ const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 5000;
 require('dotenv').config();
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 // middleware
 app.use(cors());
@@ -43,7 +43,9 @@ async function run() {
 
     // get All carts data
     app.get('/carts', async(req, res)=>{
-      const result = await cartCollection.find().toArray();
+      const email = req.query.email;
+      const query = {email: email};
+      const result = await cartCollection.find(query).toArray();
       res.send(result)
     })
 
@@ -52,6 +54,14 @@ async function run() {
       const reciveData = req.body;
       const result = await cartCollection.insertOne(reciveData)
       res.send(result)
+    })
+
+    // delete a cart
+    app.delete('/cart/:id', async(req, res)=>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)};
+      const result = await cartCollection.deleteOne(query);
+      res.send(result);
     })
    
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
