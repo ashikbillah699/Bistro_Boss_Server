@@ -31,6 +31,56 @@ async function run() {
     const reviewCollection = client.db('bistroDB').collection('reviews');
     const cartCollection = client.db('bistroDB').collection('carts');
 
+    // middleware jwt
+    const verifyToken = (req, res, next) =>{
+      console.log(req.headers);
+      if(!req.headers.authorization){
+        return res.status(401).send({message: 'unauthorized access!!'});
+      }
+      const token = req.headers.authorization.split(' ')[1];
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECURE, (err, decoded)=>{
+        if(err){
+          return res.status(401).res.send({message: 'unauthorized access!!'})
+        }
+        req.decoded = decoded;
+        next()
+      })
+    }
+
+    // verify Admin middleware
+    const verifyAdmin = async(req, res, next) =>{
+      const email = req.decoded.email;
+      const query = {userEmail: email};
+      const user = await userCollection.findOne(query);
+      const isAdmin = user?.role === 'admin';
+      if(!isAdmin){
+        return res.status(403).send({message: 'forbbiden access!!'})
+      }
+      next()
+    }
+
+    // jwt releted api
+    app.post('/jwt', (req, res)=>{
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECURE, {expiresIn:'1h'});
+      res.send({token});
+    })
+
+    // get user for admin
+    app.get('/users/admin/:email',verifyToken, async (req, res)=>{
+      const email = req.params.email;
+      if(email !== req.decoded.email){
+        return res.status(403).send({message: 'forbbiden access!!'})
+      }
+      const query = {userEmail: email};
+      const user = await userCollection.findOne(query);
+      let admin = false;
+      if(user){
+        admin = user?.role === 'admin'
+      }
+      res.send({admin});
+    })
+
     // get all menu
     app.get('/menu',async(req, res)=>{
         const result = await menuCollection.find().toArray();
@@ -44,7 +94,7 @@ async function run() {
     })
 
     // get All Users data
-    app.get('/users', async(req, res)=>{
+    app.get('/users',verifyToken, verifyAdmin, async(req, res)=>{
       const result = await userCollection.find().toArray();
       res.send(result);
     })
@@ -85,7 +135,7 @@ async function run() {
     })
 
     // delete a user
-    app.delete('/user/:id', async(req, res)=>{
+    app.delete('/user/:id',verifyToken, verifyAdmin, async(req, res)=>{
       const id = req.params.id;
       const query = {_id: new ObjectId(id)};
       const result = await userCollection.deleteOne(query);
@@ -93,7 +143,7 @@ async function run() {
     })
 
     // update a user
-    app.patch('/user/admin/:id',async(req, res)=>{
+    app.patch('/user/admin/:id', verifyToken, verifyAdmin, async(req, res)=>{
       const id = req.params.id;
       const filter = {_id: new ObjectId(id)};
       const updateDoc = {
