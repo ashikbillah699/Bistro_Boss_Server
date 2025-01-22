@@ -5,8 +5,10 @@ const port = process.env.PORT || 5000;
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 
 // middleware
+app.use(express.static('public'));
 app.use(cors());
 app.use(express.json());
 
@@ -40,7 +42,7 @@ async function run() {
       const token = req.headers.authorization.split(' ')[1];
       jwt.verify(token, process.env.ACCESS_TOKEN_SECURE, (err, decoded) => {
         if (err) {
-          return res.status(401).res.send({ message: 'unauthorized access!!' })
+          return res.status(401).send({ message: 'unauthorized access!!' })
         }
         req.decoded = decoded;
         next()
