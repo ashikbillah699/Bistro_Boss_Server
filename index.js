@@ -33,6 +33,7 @@ async function run() {
     const menuCollection = client.db('bistroDB').collection('menu');
     const reviewCollection = client.db('bistroDB').collection('reviews');
     const cartCollection = client.db('bistroDB').collection('carts');
+    const paymentCollection = client.db('bistroDB').collection('payment');
 
     // middleware jwt
     const verifyToken = (req, res, next) => {
@@ -197,6 +198,20 @@ async function run() {
       const result = await menuCollection.updateOne(filter, updateDoc);
       res.send(result);
     })
+
+    // payment history save
+    app.post('/payment', async(req, res)=>{
+      const history = req.body;
+      const result = await paymentCollection.insertOne(history);
+      res.send(result);
+    })
+
+    // delete  my all order
+    app.delete('/cart', async (req, res) => {
+      const result = await cartCollection.deleteMany();
+      res.send(result);
+    })
+    
 
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
