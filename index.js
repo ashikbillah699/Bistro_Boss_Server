@@ -1,11 +1,15 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 5000;
-require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
+const formData = require('form-data');
+const Mailgun = require('mailgun.js');
+const mailgun = new Mailgun(formData);
+const mg = mailgun.client({ username: 'api', key: process.env.MAILGUN_API_KEY});
 
 // middleware
 app.use(express.static('public'));
@@ -65,7 +69,7 @@ async function run() {
     // jwt releted api
     app.post('/jwt', (req, res) => {
       const user = req.body;
-      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECURE, { expiresIn: '1h' });
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECURE, { expiresIn: '5h' });
       res.send({ token });
     })
 
@@ -185,7 +189,7 @@ async function run() {
     app.patch('/menu/:id', async (req, res) => {
       const id = req.params.id;
       const item = req.body;
-      const filter = {_id: new ObjectId(id)}
+      const filter = { _id: new ObjectId(id) }
       const updateDoc = {
         $set: {
           name: item.name,
@@ -200,9 +204,26 @@ async function run() {
     })
 
     // payment history save
-    app.post('/payment', async(req, res)=>{
+    app.post('/payment', async (req, res) => {
       const history = req.body;
       const result = await paymentCollection.insertOne(history);
+
+      // sand email
+      mg.messages.create(process.env.SAND_EMAIL_DOMAIN, {
+        from: "Excited User <mailgun@sandbox29cbeaa833ec405581f4358c99eea864.mailgun.org>",
+        to: ["ashikbillah699@gmail.com"],
+        subject: "Hello",
+        text: "Order Confirm!",
+        html: `
+        <div>
+          <h2> Thank you for your order!!</h2>
+          <h3> Your Transaction Id is: ${history.transactionId}
+        </div>
+        `
+      })
+        .then(msg => console.log(msg)) // logs response data
+        .catch(err => console.log(err)); // logs any error
+
       res.send(result);
     })
 
@@ -211,7 +232,15 @@ async function run() {
       const result = await cartCollection.deleteMany();
       res.send(result);
     })
-    
+
+    // show user payment history
+    app.get('/payment/:email', async (req, res) => {
+      const email = req.params.email;
+      const filter = { email };
+      const result = await paymentCollection.find(filter).toArray();
+      res.send(result);
+    })
+
 
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
