@@ -13,7 +13,9 @@ const mg = mailgun.client({ username: 'api', key: process.env.MAILGUN_API_KEY});
 
 // middleware
 app.use(express.static('public'));
-app.use(cors());
+app.use(cors({
+  origin: ['https://bistro-boss-12069.firebaseapp.com', 'https://bistro-boss-12069.web.app','http://localhost:5000']
+}));
 app.use(express.json());
 
 
